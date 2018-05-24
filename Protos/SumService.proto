@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package GrpcProtos;
+
+service Calculator {
+    rpc Sum(Pair) returns (Result) {}
+}
+
+message Pair {
+    int32 number1 = 1;
+    int32 number2 = 2;
+}
+
+message Result {
+    int32 value = 1;
+}

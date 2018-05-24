@@ -1,0 +1,3 @@
+rootProject.name = 'grpc-tests'
+include 'java-client'
+
