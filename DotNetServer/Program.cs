@@ -2,7 +2,10 @@
 using System.Threading.Tasks;
 using Grpc.Core;
 using GrpcProtos;
+using System.Linq;
 using static GrpcProtos.Calculator;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace DotNetServer
 {
@@ -10,27 +13,46 @@ namespace DotNetServer
     {
         class CalculatorImpl : CalculatorBase
         {
+            private Queue<Pair> requests = new Queue<Pair>();
+
             public override Task<Result> Sum(Pair request, ServerCallContext context)
             {
                 return Task.FromResult(new Result { Value = request.Number1 + request.Number2 });
             }
+          
         }
+        static ManualResetEvent _quitEvent = new ManualResetEvent(false);
 
         static void Main(string[] args)
         {
-            Server server = new Server
+            Console.CancelKeyPress += (sender, eArgs) =>
             {
-                Services = {
-                    Calculator.BindService(new CalculatorImpl())
-                },
-                Ports = { new ServerPort("localhost", 7777, ServerCredentials.Insecure) }
+                _quitEvent.Set();
+                eArgs.Cancel = true;
             };
-            server.Start();
-            Console.WriteLine("Iniciou server em localhost:7777");
-            Console.WriteLine("Pressione qualquer tecla para fechar o server");
-            Console.ReadKey();
 
-            server.ShutdownAsync().Wait();
+            try
+            {
+                Server server = new Server
+                {
+                    Services = {
+                        Calculator.BindService(new CalculatorImpl())
+                    },
+                    Ports = { new ServerPort("localhost", 7777, ServerCredentials.Insecure) }
+                };
+
+                server.Start();
+                Console.WriteLine("Iniciou server em localhost:7777");
+                Console.WriteLine("Pressione qualquer tecla para fechar o server");
+
+                _quitEvent.WaitOne();
+
+                server.ShutdownAsync().Wait();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Finalizou com erro " + ex.ToString());
+            }
         }
     }
 }

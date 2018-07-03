@@ -2,6 +2,7 @@
 using GrpcProtos;
 using System;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,13 +12,13 @@ namespace DotNetClient
     {
         static void Main(string[] args)
         {
-            AsyncTest();
+            Channel channel = new Channel("localhost:7777", ChannelCredentials.Insecure);
+            SyncTest(channel);
         }
 
-        private static void AsyncTest()
+        private static void AsyncTest(Channel channel)
         {
             int calls = 0;
-            Channel channel = new Channel("127.0.0.1:7777", ChannelCredentials.Insecure);
             var client = new Calculator.CalculatorClient(channel);
 
             new Thread(() =>
@@ -29,24 +30,25 @@ namespace DotNetClient
                 }
             }).Start();
 
-            Enumerable.Range(0, 100000).AsParallel().ForAll(x =>
-            {
-                Result result = client.Sum(new Pair { Number1 = 84, Number2 = 9997 });
-                Interlocked.Increment(ref calls);
-            });
+            Parallel.ForEach(Enumerable.Range(0, 1000000),
+                new ParallelOptions { MaxDegreeOfParallelism = 1 },
+                x =>
+                {
+                    Result result = client.Sum(new Pair { Number1 = 84, Number2 = 9997 });
+                    Interlocked.Increment(ref calls);
+                });
 
-            Console.ReadKey();
+            Console.Read();
             channel.ShutdownAsync().Wait();
         }
 
-        private static void SyncTest()
+        private static void SyncTest(Channel channel)
         {
             int calls = 0;
-            Channel channel = new Channel("127.0.0.1:7777", ChannelCredentials.Insecure);
             var client = new Calculator.CalculatorClient(channel);
             Task.Run(() =>
             {
-                for (int i = 0; i < 100000; i++)
+                for (int i = 0; i < 1000000; i++)
                 {
                     Result result = client.Sum(new Pair { Number1 = 84, Number2 = 9997 });
                     calls++;
@@ -63,7 +65,7 @@ namespace DotNetClient
 
             });
 
-            Console.ReadKey();
+            Console.Read();
             channel.ShutdownAsync().Wait();
         }
     }

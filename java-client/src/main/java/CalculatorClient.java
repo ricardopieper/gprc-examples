@@ -11,7 +11,7 @@ public class CalculatorClient {
     private final CalculatorGrpc.CalculatorBlockingStub blockingCall;
 
     public CalculatorClient(String host, int port) {
-        ManagedChannelBuilder builder = ManagedChannelBuilder.forAddress(host, port).usePlaintext(true);
+        ManagedChannelBuilder builder = ManagedChannelBuilder.forAddress(host, port).usePlaintext();
         managedChannel = builder.build();
         blockingCall = CalculatorGrpc.newBlockingStub(managedChannel);
     }
