@@ -2,7 +2,6 @@
 using GrpcProtos;
 using System;
 using System.Linq;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,8 +11,10 @@ namespace DotNetClient
     {
         static void Main(string[] args)
         {
-            Channel channel = new Channel("localhost:7777", ChannelCredentials.Insecure);
-            SyncTest(channel);
+            var channels = Enumerable.Range(0, 100)
+                .Select(x => new Channel("localhost:7777", ChannelCredentials.Insecure)).ToArray();
+          
+            AsyncMultichannelTest(channels);
         }
 
         private static void AsyncTest(Channel channel)
@@ -40,6 +41,38 @@ namespace DotNetClient
 
             Console.Read();
             channel.ShutdownAsync().Wait();
+        }
+
+
+        private static void AsyncMultichannelTest(Channel[] channels)
+        {
+            Random random = new Random();
+            int calls = 0;
+            var clients = channels.Select(x => new Calculator.CalculatorClient(x)).ToArray();
+
+            new Thread(() =>
+            {
+                while (true)
+                {
+                    Console.WriteLine(calls);
+                    Thread.Sleep(1000);
+                }
+            }).Start();
+
+            Parallel.ForEach(Enumerable.Range(0, 1000000),
+                new ParallelOptions { MaxDegreeOfParallelism = 1 },
+                x =>
+                {
+                    Calculator.CalculatorClient client = clients[random.Next(0, channels.Length)];
+                    Result result = client.Sum(new Pair { Number1 = 84, Number2 = 9997 });
+                    Interlocked.Increment(ref calls);
+                });
+
+            Console.Read();
+            foreach (var channel in channels)
+            {
+                channel.ShutdownAsync().Wait();
+            }
         }
 
         private static void SyncTest(Channel channel)
